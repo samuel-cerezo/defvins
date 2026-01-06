@@ -1,7 +1,3 @@
-/*
-This file will be responsible of all tracked points.
-This module enables adding correspondences while holding ID coherence
-*/
 
 #include "track_manager.h"
 

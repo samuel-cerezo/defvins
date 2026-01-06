@@ -243,7 +243,7 @@ void buildDeformationNodesFromTracks(
         bool found = false;
         for (const auto& obs : tr.observations) {
             if (obs.frame_idx == ref_frame_idx) {
-                uv = obs.uv;   // obs.uv es Eigen::Vector2d según tu código original
+                uv = obs.uv;   
                 found = true;
                 break;
             }
@@ -252,18 +252,14 @@ void buildDeformationNodesFromTracks(
 
         double d_m = 0.0;
         if (!sampleDepthAt(depth, uv, depth_scale, d_m)) {
-            // Si no hay profundidad válida, puedes:
-            //  - continuar (no crear nodo)
-            //  - o poner un z por defecto
+
             continue;
         }
 
         Eigen::Vector3d ray = K.inverse() * Eigen::Vector3d(uv.x(), uv.y(), 1.0);
         Eigen::Vector3d x_cam = ray * d_m;
 
-        //double z0 = 1.0; // profundidad arbitraria
         NodeRest node;
-        //node.X_ref = x_cam * z0;
         node.X_ref = x_cam;
 
         g_nodes_rest[id] = node;
@@ -271,7 +267,7 @@ void buildDeformationNodesFromTracks(
     }
 
     // 2) construir grafo de vecinos y pesos viscosos
-    const double sigma = 0.05;   // [m] tuning, tamaño típico de la vecindad
+    const double sigma = 0.05;
     const double max_radius = 0.2;   
     const double K_neigh = 6;
 
@@ -336,7 +332,6 @@ void buildDeformationNodesFromTracks(
         }
     }
 
-    // Debug: grado medio
     double avg_deg = 0.0;
     if (!g_nodes_rest.empty()) {
         avg_deg = 2.0 * (double)g_viscous_edges.size() / (double)g_nodes_rest.size();

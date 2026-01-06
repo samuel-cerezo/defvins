@@ -87,7 +87,6 @@ double rmse(const Eigen::Vector3d &est, const Eigen::Vector3d &gt) {
 double rmse_ang(const Eigen::Vector3d &est, const Eigen::Vector3d &gt) {
     double dot = est.dot(gt);
     double norm_product = est.norm() * gt.norm();
-    // Asegurarse de que el argumento de acos esté en [-1, 1]
     double cosine = std::max(-1.0, std::min(1.0, dot / norm_product));
     double angle_rad = std::acos(cosine);  // en radianes
     double angle_deg = angle_rad * 180.0 / M_PI; //en grados
@@ -198,7 +197,6 @@ Eigen::Matrix3d quatToRotSafe(const Eigen::Quaterniond& q_in){
 }
 
 
-// p1, p2 en pixeles (cv::Point2f). Devuelve mediana del residual (px) tras compensar la rotación.
 double rotCompParallaxMedianPx(const std::vector<cv::Point2f>& pts1,
                                const std::vector<cv::Point2f>& pts2,
                                const Eigen::Matrix3d& K,
@@ -207,7 +205,6 @@ double rotCompParallaxMedianPx(const std::vector<cv::Point2f>& pts1,
     // Construir H = K * R * K^{-1}
     Eigen::Matrix3d H = K * R_k_k1 * K.inverse();
 
-    // Pasar a cv::Mat para usar perspectiveTransform
     cv::Mat Hcv(3,3,CV_64F);
     for(int r=0;r<3;++r) for(int c=0;c<3;++c) Hcv.at<double>(r,c) = H(r,c);
 
@@ -292,14 +289,8 @@ std::optional<Eigen::Matrix3d> compute_Rij_with_c2p(
         }
     }
     
-    // cuento los outliers que saco
     int num_inliers = static_cast<int>(f0_inliers.size());
     int num_outliers = N - num_inliers;
-
-    //std::cout << "[C2P] Total matches: " << N
-    //        << ", Inliers (RANSAC): " << num_inliers
-    //        << ", Outliers: " << num_outliers
-    //       << " (" << 100.0 * num_outliers / N << "%)\n";
 
     if (f0_inliers.size() < 8) return std::nullopt;
 

@@ -69,14 +69,12 @@ static bool load_txt_cam(const std::string& filename, const std::string& base_pa
     std::getline(file, line); // skip header
 
     while (std::getline(file, line)) {
-        // Limpia retornos de carro al final, pero NO borres los espacios internos
         if (!line.empty() && (line.back() == '\r' || line.back() == '\n'))
             line.pop_back();
 
         std::stringstream ss(line);
         std::string ts_RGB, rgb_file, ts_depth, depth_file;
 
-        // Lee separados por espacios o tabs
         ss >> ts_RGB >> rgb_file >> ts_depth >> depth_file; 
 
         if (ts_RGB.empty() || rgb_file.empty() || ts_depth.empty() || depth_file.empty()) continue;

@@ -31,9 +31,6 @@ static cv::Mat renderFrameWithTracks(
 
         cv::circle(out, pt, 2, cv::Scalar(0, 255, 0), -1); // punto verde
 
-        // Opcional: ID
-        // cv::putText(out, std::to_string(tr.id), pt + cv::Point2f(3,-3),
-        //             cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(0,255,0), 1, cv::LINE_AA);
     }
 
     // --- 2) Dibujar grafo si nos pasan los datos ---
@@ -84,7 +81,6 @@ void runTrackViewer(
     // Barra para moverse en la secuencia
     cv::createTrackbar("Frame", "TrackViewer", &current, max_frame);
 
-    // Opcional: solo reconstruir grafo cada N frames para ir más ligero
     const int REBUILD_EVERY = 1; // pon 5 o 10 si quieres menos coste
     int last_graph_frame = -1000;
 
@@ -97,7 +93,6 @@ void runTrackViewer(
             std::cerr << "[VIEWER] No pude cargar imagen " << cam0_image_names[current] << "\n";
         } else {
 
-            // 🔁 Rebuild del grafo para ESTE frame (solo visualización)
             if (current == 0 || std::abs(current - last_graph_frame) >= REBUILD_EVERY) {
                 buildDeformationNodesFromTracks(track_manager, current, K, depth_image_names, depth_scale);
                 last_graph_frame = current;

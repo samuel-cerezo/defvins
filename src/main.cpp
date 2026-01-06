@@ -351,7 +351,7 @@ bool compute_translation_parallax_score(
         const Eigen::Matrix3d& K,
         const Eigen::Matrix3d& R_k_k1,
         double& parallax_median_px,
-        std::vector<cv::Point2f>& pts1_out,   // <-- salida
+        std::vector<cv::Point2f>& pts1_out,  
         std::vector<cv::Point2f>& pts2_out)
 {
     int max_features=1000;
@@ -421,19 +421,13 @@ bool compute_translation_parallax_score(
         return false;
     }
 
-    parallax_median_px = median(residuals); // mediana robusta
+    parallax_median_px = median(residuals); 
 
     return true;
 }
 
 
-////////////////////////////////////////////
-
-
-
-
 /////////////////////////////////////////////////// main ////////////////////////////////////////////////////////
-
 int main(int argc, char** argv) {
     py::scoped_interpreter guard{};
 
@@ -442,17 +436,16 @@ int main(int argc, char** argv) {
         return -1;
     }
     
-    // para guardar trayectorias
     static std::ofstream est_ofs;
     static std::ofstream gt_ofs;
     static bool files_open = false;
     std::string path_to_data = argv[1];
     ConfigMode config = parseConfigMode(argc, argv);
     //  hyperparameters
-    double sigma = 0.02;       // en metros, tuning
-    double d_max = 5;   //tuning
+    double sigma = 0.02;       // m
+    double d_max = 5;   
     double b_ij = std::exp( - (d_max*d_max) / (2.0 * sigma * sigma) );
-    double k_elas = 1.0; // tuning global
+    double k_elas = 1.0; 
 
     // Dataset containers
     std::vector<double> timu, tcam, tdepth, tgt;
@@ -464,7 +457,7 @@ int main(int argc, char** argv) {
     int starting_frame_;
 
 
-    // Load Mandala dataset
+    // Load dataset
     if (!load_mandala_sequence(path_to_data, timu, omega, acc, tcam, tdepth, cam0_image_names, depth_image_names,
                              tgt, flange_quaternions_gt, bg_gt, ba_gt, v_gt, g_gt, flange_positions_gt, tbodycam, tbodyimu, tflangebody, starting_frame_)) {
         std::cerr << "Error loading Mandala dataset." << std::endl;
@@ -487,7 +480,7 @@ int main(int argc, char** argv) {
     //---------------------------------------------
    
     std::vector<int> optimized_kfs;
-    optimized_kfs.reserve(1000);   // opcional
+    optimized_kfs.reserve(1000);  
 
     std::cout << "--- Starting frame: " << starting_frame_ << " ----" << std::endl;
 
@@ -521,7 +514,7 @@ int main(int argc, char** argv) {
     //std::cout << "K matrix: " << K << std::endl;
     cv::Mat dist_cv(distortion_params);
 
-    preprocessAllTracks(cam0_image_names, tracker, track_manager);  //preproceso todas las imagenes
+    preprocessAllTracks(cam0_image_names, tracker, track_manager);
     
     //    general parameters
 
@@ -540,10 +533,10 @@ int main(int argc, char** argv) {
         //std::cout << "/// Processing frame " << ref_frame_idx << std::endl;
         bool stability=false;
 
-        double first_threshold = 45.0;  //45
-        double first_threshold_rel = 0.7;  //0.7
+        double first_threshold = 45.0;
+        double first_threshold_rel = 0.7;  
         int id_threshold = 0;
-        size_t N = 7;  //number of features. 11
+        size_t N = 7;  
         double ratio_new=0;
         int MAX_FRAMES = 25;
         std::map<int, double> deriv_ratio;
@@ -556,7 +549,6 @@ int main(int argc, char** argv) {
 
         double parallax_media_px = 0.0;            
         double parallax_anterior = 0.0;            
-        // FIX: mover las ventanas fuera del loop para acumular historia
 
         std::deque<double> win_parallax, win_rotcomp;
         const int W = 6, M = 3;
@@ -568,7 +560,6 @@ int main(int argc, char** argv) {
             id_threshold = (int)trigg_disp;
             int actual_frame = (int)trigg_disp + ref_frame_idx;
 
-            // FIX: blindar límites (evita out-of-range en la última parte del dataset)
             if (ref_frame_idx < 0 || ref_frame_idx >= (int)cam0_image_names.size()) break;
             if (actual_frame + 1 >= (int)cam0_image_names.size()) break;
 
@@ -618,9 +609,7 @@ int main(int argc, char** argv) {
                 win_parallax.pop_front();
                 win_rotcomp.pop_front();
             }
-            
-
-            //std::cout << parallax_media_px << std::endl;   
+        
 
             if(trigg_disp <= 2) { parallax_anterior = parallax_media_px; continue; }
 
@@ -636,14 +625,7 @@ int main(int argc, char** argv) {
                 break;
             }
 
-            // Actualizar "anterior" al final de la iteración
             parallax_anterior = parallax_media_px;
-
-            //if (parallax_media_px >= first_threshold) {
-            //if(((parallax_rel >= first_threshold_rel) && (trigg_disp > 2)) || ((parallax_media_px >= first_threshold) && (trigg_disp > 2))){
-            //    std::cout << " - Criterio alcanzado en " << trigg_disp << " frames." << std::endl;
-            //    break; // the criteria is achieved
-            //}
 
         }
         ///////////////////////////////////////////////////////////////////////////
@@ -703,7 +685,6 @@ int main(int argc, char** argv) {
 
         // -----------------------------------------
 
-        // buscamos el indice de GT que mas se acerca a la imagen0
         double min_diff = std::numeric_limits<double>::max();
         for (size_t gt_id0 = 0; gt_id0 < tcam.size(); ++gt_id0) {
             double diff = std::abs(tcam[ref_frame_idx] - tgt[gt_id0]);
@@ -712,24 +693,6 @@ int main(int argc, char** argv) {
                 gt_starting_frame_ = static_cast<int>(gt_id0);
             }
         }
-
-        // -------------- Obtenemos valores Ground Truth -----
-
-        /*
-        // GT del flange wrt mundo
-        Eigen::Quaterniond q_WF = q_gt[gt_starting_frame_];     // W←F
-        Eigen::Vector3d    p_WF = p_gt[gt_starting_frame_];    // en W
-
-        Eigen::Matrix4d T_FC = tflangebody;
-        Eigen::Matrix3d R_FC = T_FC.block<3,3>(0,0);
-        Eigen::Vector3d p_FC = T_FC.block<3,1>(0,3);
-
-        // Cámara wrt mundo:
-        Pose camW_gt = camera_wrt_world(q_WF, p_WF, R_FC, p_FC);
-        Eigen::Quaterniond q_WC_gt = camW_gt.q;        
-        Eigen::Matrix3d R0_gt = quatToRotSafe(q_WC_gt);
-        Eigen::Vector3d p0_gt = camW_gt.p;  //initial camera position
-        */
 
         ////////////////////////////////////////////////
         double t1_gt = tgt[gt_starting_frame_];
@@ -749,7 +712,6 @@ int main(int argc, char** argv) {
         historico_rmseV[id_threshold] = 999;    
 
         const Vector3d big = Vector3d::Constant(999.0);
-        // Asignación en std::map<int, Vector3d>
         if (id_threshold >= 1) {
             historicoG[id_threshold - 1] = big;
             historicoB[id_threshold - 1] = big;
@@ -758,10 +720,6 @@ int main(int argc, char** argv) {
         historicoG[id_threshold] = big;
         historicoB[id_threshold] = big;
         historicoV[id_threshold] = big;
-
-
-        /// aca hace el ciclo grande 
-        //for (size_t n_frames=id_threshold; n_frames <= MAX_FRAMES; ++n_frames){ // extensive evaluation
 
         Eigen::Vector3d init_vel = Vector3d::Zero();
         Eigen::Vector3d init_gravity = Vector3d::Zero();
@@ -775,23 +733,6 @@ int main(int argc, char** argv) {
 
             auto valid_tracks = selectTracksForInit(
                 track_manager, ref_frame_idx, n_frames, MAX_PUNTOS_CARACTERISTICOS);
-
-            //std::cout << "[INIT] Usando " << valid_tracks.size() 
-            //        << " tracks para inicialización desde frame " << ref_frame_idx << std::endl;
-
-
-            /*
-            std::cout << "Processing features in multiple images..." << std::endl;
-            for (int i = 0; i < cam0_image_names.size(); ++i) {
-                cv::Mat image = cv::imread(cam0_image_names[i], cv::IMREAD_GRAYSCALE);
-                tracker.processFrame(image, i, track_manager);
-            }
-
-            int MAX_PUNTOS_CARACTERISTICOS = 20;
-            auto valid_tracks = track_manager.getTracksWithMinObservations(4, MAX_PUNTOS_CARACTERISTICOS); //para obtener solo aquellos puntos que fueron vistos en al menos X imágenes distintas.
-
-            std::cout << "Numero de puntos caracteristicos: " << valid_tracks.size() << std::endl;
-            */
 
             size_t count_frames = 0;
             //size_t count_points = 0;
@@ -815,7 +756,7 @@ int main(int argc, char** argv) {
             //std::cout << "[DEBUG] 1" << std::endl;
             
             // --------- precomputo 
-            std::vector<int> keys_disponibles; // guardamos qué columnas j+1 existen realmente
+            std::vector<int> keys_disponibles; 
             for (int rel_j = 1; rel_j <= (int)n_frames; ++rel_j) {
                 int abs_j = ref_frame_idx + rel_j;
                 if (abs_j >= (int)tcam.size()) break;
@@ -872,13 +813,11 @@ int main(int argc, char** argv) {
                 int i = (int)count_points; // id compacto del punto
                 size_t usados = 0;
 
-                // IMPORTANTE: obs.frame_idx es ABSOLUTO
                 for (const auto& obs : track.observations) {
                     int abs_j = obs.frame_idx;
-                    int rel_j = abs_j - ref_frame_idx; // relativo para nuestros mapas
+                    int rel_j = abs_j - ref_frame_idx;
                     if (rel_j < 0 || rel_j > (int)n_frames) continue;
 
-                    // j == 0 → columna referencia
                     if (rel_j == 0) {
                         Vector3d mu_1 = computeMuFromUV(obs.uv, K);
                         if (mu_1.norm() < 1e-5) continue;
@@ -886,7 +825,6 @@ int main(int argc, char** argv) {
                         continue;
                     }
 
-                    // Usar R_ij precomputado (key = rel_j+1)
                     int key = rel_j + 1;
                     auto itR = R_ij_map.find(key);
                     if (itR == R_ij_map.end()) {
@@ -894,19 +832,14 @@ int main(int argc, char** argv) {
                         continue;
                     }
 
-                    // NO consultar el track con 'j' relativo; ya tenemos la obs actual
                     Vector3d mu_j = computeMuFromUV(obs.uv, K);
                     if (mu_j.norm() < 1e-5) continue;
 
                     Vector3d mu_ij = itR->second * mu_j;
                     mu_ij_map[{i, key}] = mu_ij;
 
-                    // límite por frames efectivos por punto (opcional)
-                    //if (++usados >= n_frames) break;
                 }
             }
-
-            // -------- fin recorrido tracks (corregido) ----
 
             // Construir el vector de tiempos t (t[0] = 0.0; luego las diferencias):
             std::sort(keys_disponibles.begin(), keys_disponibles.end());
@@ -920,7 +853,6 @@ int main(int argc, char** argv) {
             t_vals.push_back(0.0); // t0
 
             for (int key : keys_disponibles) {
-                // key = rel_j + 1; queremos Δt_j para cada columna existente
                 auto it = tj_map.find(key);
                 if (it == tj_map.end()) continue;
                 t_vals.push_back(it->second);
@@ -930,7 +862,6 @@ int main(int argc, char** argv) {
             std::vector<int> eff_cols;
             eff_cols.reserve(Gamma_j_map.size());
 
-            // ¿tiene al menos una mu para esta columna?
             auto has_mu_for_col = [&](int col)->bool{
                 for (const auto& kv : mu_ij_map){
                     if (kv.first.second == col) return true; // {i, col}
@@ -938,7 +869,6 @@ int main(int argc, char** argv) {
                 return false;
             };
 
-            // Candidatas: usa las keys de Gamma_j_map (podrías usar S_j_map o R_ij_map igualmente)
             for (const auto& kv : Gamma_j_map){
                 int col = kv.first;
                 if (R_ij_map.find(col)==R_ij_map.end()) continue;
@@ -948,16 +878,13 @@ int main(int argc, char** argv) {
                 eff_cols.push_back(col);
             }
 
-            // Asegura que esté la columna de referencia (1) si existe en los mapas
             if (std::find(eff_cols.begin(), eff_cols.end(), 1) == eff_cols.end()){
                 if (Gamma_j_map.count(1) && S_j_map.count(1) && R_ij_map.count(1) && tj_map.count(1) && has_mu_for_col(1))
                     eff_cols.insert(eff_cols.begin(), 1);
             }
 
-            // Ordenar por si vinieron desordenadas
             std::sort(eff_cols.begin(), eff_cols.end());
 
-            // Si hay muy pocas columnas efectivas, sal con gracia
             if (eff_cols.size() < 2){
                 std::cerr << "[WARN] Muy pocas columnas efectivas (size=" << eff_cols.size() << "). Saltando esta init.\n";
                 continue;
@@ -981,7 +908,6 @@ int main(int argc, char** argv) {
             for(int col_real : eff_cols){
                 int jc = col_index[col_real];
 
-                // Copia segura (ya sabemos que existen por haber filtrado eff_cols)
                 Gamma_comp[jc] = *try_at(Gamma_j_map, col_real);
                 S_comp[jc]     = *try_at(S_j_map,     col_real);
 
@@ -1004,10 +930,6 @@ int main(int argc, char** argv) {
                 mu_comp[{i_point, jc}] = kv.second;
             }
 
-            // ================== /COMPACTACIÓN ==================
-            // ================== DENSIFICAR PUNTOS (i) ==================
-            // Requiere: eff_cols, col_index, mu_comp, Gamma_comp, S_comp, t_vals_comp
-
             // 1) Elige puntos que tengan mu en TODAS las columnas compactas 1..C
             std::vector<int> dense_points_orig; // índices de punto 'i' originales
             dense_points_orig.reserve(N);
@@ -1020,7 +942,6 @@ int main(int argc, char** argv) {
                 return true;
             };
 
-            // Nota: 'count_points' es cuántos puntos llegaste a cargar (1..count_points)
             for (int i_orig = 1; i_orig <= (int)count_points; ++i_orig){
                 if (has_all_cols(i_orig)) {
                     dense_points_orig.push_back(i_orig);
@@ -1046,7 +967,6 @@ int main(int argc, char** argv) {
                     auto it = mu_comp.find({i_orig, jc});
                     // Debe existir por construcción:
                     if (it == mu_comp.end()){
-                        // defensa extra: si no está, aborta esta init limpia
                         std::cerr << "[WARN] Faltó mu para i=" << i_orig << " col=" << jc
                                 << " tras comprobar densidad. Skip.\n";
                         i_new = 0; // marca invalidez
@@ -1069,11 +989,10 @@ int main(int argc, char** argv) {
 
             // 2) Si el cerrado falla, arma un warm-start seguro por defecto
             VISolution warm_default;
-            warm_default.gravity  = Eigen::Vector3d(0, -gravity_mag, 0); // ajusta signo/eje según tu convención
+            warm_default.gravity  = Eigen::Vector3d(0, -gravity_mag, 0);
             warm_default.velocity = Eigen::Vector3d::Zero();
             warm_default.bias     = Eigen::Vector3d::Zero();
 
-            // 3) Llamar SIEMPRE a Ceres con warm-start (cerrado si existe; si no, default)
             const VISolution* warm_ptr = have_closed ? &sol_closed : &warm_default;
 
             VISolution sol_ceres;
@@ -1085,7 +1004,6 @@ int main(int argc, char** argv) {
                 sol_ceres
             );
 
-            // 4) Elegir solución final (si Ceres falla, cae al cerrado si estaba disponible)
             VISolution sol_final;
             if (ok_ceres) {
                 sol_final = sol_ceres;
@@ -1097,7 +1015,6 @@ int main(int argc, char** argv) {
                 sol_final = warm_default;
             }
 
-            // 5) Usar sol_final como antes (comparar contra GT, logging, etc.)
             Eigen::Vector3d gravity = R0_gt * sol_final.gravity;
             Eigen::Vector3d bias_acc = R0_gt * sol_final.bias;
 
@@ -1106,7 +1023,6 @@ int main(int argc, char** argv) {
             double rmse_bias_a   = rmse(bias_acc, Ba_gt);
             double rmse_bias_g   = rmse(bg_est, Bg_gt);
 
-            // Historiales (conservar tu lógica existente)
             historico_rmseG[n_frames]  = rmse_gravity;
             historico_rmseBA[n_frames] = rmse_bias_a;
             historico_rmseV[n_frames]  = rmse_velocity;
@@ -1137,7 +1053,7 @@ int main(int argc, char** argv) {
         
         std::cout << "-------- Optimizacion de KFs ---------" << std::endl;
             
-        // ====== VENTANA (prototipo 10 KFs) ======
+        // ====== VENTANA  ======
         static GlobalParams gp;              // g, bg, ba globales
         static bool gp_inited = false;
         static int WINDOWS_SIZE = 5;    // numero de KF en la ventana
@@ -1146,7 +1062,6 @@ int main(int argc, char** argv) {
         const int first_kf = id_threshold + INIT_FRAME;
         //const int last_kf  = static_cast<int>(cam0_image_names.size()) - 1;
         const int last_kf = first_kf + 4000;
-
 
         // sanity check opcional:
         if (first_kf + WINDOWS_SIZE >= last_kf) {
@@ -1228,7 +1143,7 @@ int main(int argc, char** argv) {
                 Eigen::Vector3d p_gt_ref = p_gt[idx_gt_ref];
 
                 kf.p = p_gt_ref;
-                kf.v = Eigen::Vector3d::Zero();    // velocidad inicial 0 
+                kf.v = Eigen::Vector3d::Zero();  
                 kf.v = init_vel;
 
                 gp_inited = true;
@@ -1280,7 +1195,7 @@ int main(int argc, char** argv) {
                         return (double)img.at<uint8_t>(y, x);
                     };
 
-                    // ------------------ IMU segment (FIX) -----------------
+                    // ------------------ IMU segment -----------------
                     std::vector<ImuSample> seg;
                     seg.reserve(512);
 
@@ -1298,7 +1213,7 @@ int main(int argc, char** argv) {
                     PreintMeas meas = preintegrate_segment(seg, A.t, B.t, gp.bg, gp.ba, gp.g);
                     const double dt = meas.dt;
 
-                    // ------------------ C2P cache (evitar shadowing) -----------------
+                    // ------------------ C2P cache  -----------------
                     struct PairHash {
                         size_t operator()(const std::pair<int,int>& p) const noexcept {
                             return (static_cast<size_t>(p.first) << 32) ^ static_cast<size_t>(p.second);
@@ -1332,11 +1247,10 @@ int main(int argc, char** argv) {
                     Eigen::Vector3d pb = B.p;
                     Eigen::Vector3d vb = B.v;
 
-                    // ------------------ seed IMU (USARLO) -----------------
+                    // ------------------ seed IMU  -----------------
                     Eigen::Vector3d p_pred = pa + va * dt + 0.5 * gp.g * dt * dt + A.R * meas.dp;
                     Eigen::Vector3d v_pred = va + gp.g * dt + A.R * meas.dv;
 
-                    // Si NO querés seedear pb/vb desde GT, al menos usa IMU seed:
                     if (config != ConfigMode::DEFVINS_NO_IMU) {
                         pb = p_pred;
                         vb = v_pred;
@@ -1372,13 +1286,9 @@ int main(int argc, char** argv) {
                     prob.SetParameterBlockConstant(pa.data());
                     prob.SetParameterBlockConstant(va.data());
 
-                    // (tu bloque node_states + residuos viscoso/elástico + foto + reproj va igual)
-                    // IMPORTANTE: usa imgA_mat/imgB_mat al construir PhotometricCost:
-                    // auto* photo_cost = new PhotometricCost(imgA_mat, imgB_mat, uvA, K);
 
                     // Gravity prior + Preint
                     if (config != ConfigMode::DEFVINS_NO_IMU) {
-                        // Asegura que gp.g sea parámetro (Ceres la agrega si aparece, pero esto lo deja explícito)
                         prob.AddParameterBlock(gp.g.data(), 3);
 
                         double w_g = 10.0;
@@ -1409,7 +1319,7 @@ int main(int argc, char** argv) {
                     B.v = vb;
                     g_cam_poses[B.k] = KFPose{B.R, B.p};
 
-                }   // fin for(wind_loc)
+                }   // fin for
 
                 // escribimos results
                 for (const auto& S : win) {

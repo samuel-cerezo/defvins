@@ -73,10 +73,6 @@ void process_frame_pair(int starting_frame,
     if (!detect_and_track_features(img_path_1, img_path_2, old_points, new_points, image_1, image_2)) return;
     if (old_points.size() < 8) return;
 
-    //cv::undistortPoints(old_points, old_undist, K_cv, dist_cv, cv::noArray(), K_cv);
-    //cv::undistortPoints(new_points, new_undist, K_cv, dist_cv, cv::noArray(), K_cv);
-
-    // Undistort to pixel coordinates using P=K 
     cv::Mat old_undist, new_undist, mask;
     cv::undistortPoints(old_points, old_undist, K_cv, dist_cv, cv::noArray(), K_cv);
     cv::undistortPoints(new_points, new_undist, K_cv, dist_cv, cv::noArray(), K_cv);
@@ -111,7 +107,6 @@ void process_frame_pair(int starting_frame,
     // Estimate Essential matrix to get inliers
     cv::Mat E = cv::findEssentialMat(old_undist, new_undist, K_cv, cv::RANSAC, 0.999, 1.0, mask);
 
-   // debug_essential(old_undist, new_undist, mask);
 
     std::vector<Eigen::Vector3d> f0_inliers, f1_inliers;
     int total_valid = 0, discarded = 0;
@@ -141,7 +136,7 @@ void process_frame_pair(int starting_frame,
     }
 
     Eigen::Matrix3d R01 = c2p_result.R;
-    Eigen::Vector3d t_dir = c2p_result.t.normalized();  // direction without scale
+    Eigen::Vector3d t_dir = c2p_result.t.normalized();  
 
 
     // Extract IMU segment
@@ -183,8 +178,6 @@ void process_frame_pair(int starting_frame,
     
     Eigen::Matrix3d R_imu = tbodyimu.block<3, 3>(0, 0);
     Eigen::Matrix3d R_cam = tbodycam.block<3, 3>(0, 0);
-    //std::cout << "R_cam:\n" << R_cam << std::endl;
-    //std::cout << "R_imu:\n" << R_imu << std::endl;
 
 
     //----------------------- bias estimation ----------------------------
