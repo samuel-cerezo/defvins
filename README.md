@@ -22,6 +22,13 @@ DefVINS addresses deformable environments by explicitly separating:
 
 In addition, the paper includes an **observability analysis** of the visual–inertial deformable estimation problem, characterizing how inertial measurements improve conditioning and stabilize the rigid trajectory in the presence of deformation.
 
+## 📏 Trajectory evaluation (`trajeval`)
+
+The [`trajeval/`](trajeval/) folder contains a standalone, pip-installable Python tool that
+evaluates robot / SLAM trajectories against a reference: ATE, RPE, and lateral,
+longitudinal and heading errors, with SE(2)/SE(3)/Sim(3) alignment and aggregation across
+repeated runs. See [`trajeval/README.md`](trajeval/README.md).
+
 ## ✨ Highlights
 
 - Visual–Inertial Odometry designed for **deformable scenes**
