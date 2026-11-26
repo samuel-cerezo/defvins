@@ -48,7 +48,18 @@ The project is built with **CMake** and requires the following software:
   - The CMake configuration expects the Python framework installation layout (macOS-style)
   - The code links against `libpython3.8.dylib`
 
-> ⚠️ Note (macOS): your `CMakeLists.txt` currently points to Homebrew paths for OpenCV and yaml-cpp, and to a Python **framework** installation (e.g., `/Library/Frameworks/Python.framework/...`).
+> ⚠️ Note (macOS): `CMakeLists.txt` still uses the Homebrew paths for OpenCV and yaml-cpp and the Python 3.8 **framework** installation (`/Library/Frameworks/Python.framework/...`) when they exist; on other systems it falls back to `find_package`. Ceres ≥ 2.1 is required.
+
+### 🐳 Reproducible build (Docker)
+
+A pinned Ubuntu 22.04 image (Ceres 2.2.0, Pangolin v0.9.1, OpenCV 4.5.4, …) builds and runs DefVINS headless:
+
+```bash
+docker compose build
+docker compose run --rm defvins <sequence_in_./data> mode_full
+```
+
+Details in [`docker/README.md`](docker/README.md). Code structure, data flow, residuals and output formats are documented in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## 📁 Repository Layout (high level)
 

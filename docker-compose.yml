@@ -1,0 +1,24 @@
+# DefVINS headless runner.
+#
+#   docker compose build
+#   docker compose run --rm defvins <sequence> [mode_full|mode_no_nr|mode_no_imu]
+#
+# Data:    ${DEFVINS_DATA_DIR:-./data}    -> /workspace/data     (read-only)
+# Results: ${DEFVINS_RESULTS_DIR:-./results_docker} -> /workspace/results
+services:
+  defvins:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: defvins:latest
+    # nonmin-pose (C2P) only ships x86_64 Linux wheels; on Apple Silicon this
+    # runs under Rosetta/QEMU emulation.
+    platform: linux/amd64
+    environment:
+      # Leave DISPLAY unset -> headless (xvfb-run). To use a host X server,
+      # export DISPLAY and mount /tmp/.X11-unix yourself.
+      - DEFVINS_DATA=/workspace/data
+      - DEFVINS_OUTPUT=/workspace/results
+    volumes:
+      - ${DEFVINS_DATA_DIR:-./data}:/workspace/data:ro
+      - ${DEFVINS_RESULTS_DIR:-./results_docker}:/workspace/results

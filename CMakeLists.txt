@@ -12,25 +12,53 @@ find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
 
 # OpenCV
-set(OpenCV_DIR /opt/homebrew/opt/opencv/lib/cmake/opencv4)
+# On macOS/Homebrew keep the original hint; elsewhere rely on the default search
+# path (or pass -DOpenCV_DIR=...).
+if(APPLE AND NOT OpenCV_DIR AND EXISTS /opt/homebrew/opt/opencv/lib/cmake/opencv4)
+    set(OpenCV_DIR /opt/homebrew/opt/opencv/lib/cmake/opencv4)
+endif()
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
 # yaml-cpp
 set(YAML_CPP_DIR "/opt/homebrew/opt/yaml-cpp")
-include_directories(${YAML_CPP_DIR}/include)
-link_directories(${YAML_CPP_DIR}/lib)
+if(EXISTS ${YAML_CPP_DIR})
+    include_directories(${YAML_CPP_DIR}/include)
+    link_directories(${YAML_CPP_DIR}/lib)
+else()
+    find_package(yaml-cpp REQUIRED)
+endif()
 
-# pybind11 + Python 3.8
-set(PYTHON_VERSION 3.8)
-set(PYTHON_INCLUDE_DIR /Library/Frameworks/Python.framework/Versions/${PYTHON_VERSION}/include/python${PYTHON_VERSION})
-set(PYTHON_LIBRARY /Library/Frameworks/Python.framework/Versions/${PYTHON_VERSION}/lib/libpython${PYTHON_VERSION}.dylib)
-include_directories(${PYTHON_INCLUDE_DIR})
-link_directories(/Library/Frameworks/Python.framework/Versions/${PYTHON_VERSION}/lib)
-include_directories(/Library/Frameworks/Python.framework/Versions/${PYTHON_VERSION}/lib/python${PYTHON_VERSION}/site-packages/pybind11/include)
+# pybind11 + embedded Python (used to call the C2P solver, scripts/nonmin_pose_wrapper.py)
+# macOS: the original setup used the python.org 3.8 framework. It is still used
+# by default when present; otherwise CMake's FindPython3 picks the system Python
+# (override with -DPython3_ROOT_DIR=... or -DPython3_EXECUTABLE=...).
+set(DEFVINS_LEGACY_PY_FRAMEWORK /Library/Frameworks/Python.framework/Versions/3.8)
+if(APPLE AND NOT Python3_ROOT_DIR AND NOT Python3_EXECUTABLE AND EXISTS ${DEFVINS_LEGACY_PY_FRAMEWORK})
+    set(Python3_ROOT_DIR ${DEFVINS_LEGACY_PY_FRAMEWORK})
+endif()
+find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+include_directories(${Python3_INCLUDE_DIRS})
+set(PYTHON_LIBRARY ${Python3_LIBRARIES})
 
-# Ceres Solver
-find_package(Ceres REQUIRED)
+find_package(pybind11 CONFIG QUIET)
+if(pybind11_FOUND)
+    include_directories(${pybind11_INCLUDE_DIRS})
+else()
+    # pybind11 installed with pip into the selected interpreter
+    execute_process(
+        COMMAND ${Python3_EXECUTABLE} -c "import pybind11; print(pybind11.get_include())"
+        OUTPUT_VARIABLE PYBIND11_PIP_INCLUDE
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        RESULT_VARIABLE PYBIND11_PIP_RESULT)
+    if(NOT PYBIND11_PIP_RESULT EQUAL 0)
+        message(FATAL_ERROR "pybind11 not found (neither CMake package nor pip module)")
+    endif()
+    include_directories(${PYBIND11_PIP_INCLUDE})
+endif()
+
+# Ceres Solver (>= 2.1 required: the code uses ceres::Manifold)
+find_package(Ceres 2.1 REQUIRED)
 include_directories(${CERES_INCLUDE_DIRS})
 
 find_package(Pangolin REQUIRED)
@@ -54,7 +82,7 @@ add_executable(defvins
     src/defgraph_3d_viewer.cpp
     src/vins_closed_form.cpp
     src/deformation_graph.cpp
-    src/alignment_utils
+    src/alignment_utils.cpp
 )
 
 target_include_directories(defvins PRIVATE

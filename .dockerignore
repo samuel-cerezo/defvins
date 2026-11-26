@@ -1,0 +1,8 @@
+.git
+.github
+build
+results
+results_docker
+data
+**/__pycache__
+*.md
